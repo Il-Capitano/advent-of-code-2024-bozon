@@ -1,0 +1,90 @@
+import std::format;
+import std::vector;
+import std::utils;
+import std::math;
+import common;
+
+function bubble_sort(values: [: mut auto])
+{
+	if (values.size() == 0)
+	{
+		return;
+	}
+
+	let size = values.size();
+	for (let i in 1..size)
+	{
+		for (let j in 0..size - i)
+		{
+			if (values[j + 1] < values[j])
+			{
+				std::swap(values[j], values[j + 1]);
+			}
+		}
+	}
+}
+
+function part1(input: [: str]) -> int32
+{
+	let mut left_list = std::vector<int32>();
+	let mut right_list = std::vector<int32>();
+	for (let line in input) {
+		let [left, right] = line.split("   ");
+		left_list.push_back(parse_int(int32, left));
+		right_list.push_back(parse_int(int32, right));
+	}
+
+	bubble_sort(left_list.as_slice());
+	bubble_sort(right_list.as_slice());
+
+	let mut distance = 0;
+	for (let i in 0..left_list.size())
+	{
+		distance += std::abs(left_list[i] - right_list[i]);
+	}
+
+	return distance;
+}
+
+function count_value(values: [: auto], value: auto) -> int32
+{
+	let mut count = 0;
+	for (let input_value in values)
+	{
+		if (input_value == value)
+		{
+			count += 1;
+		}
+	}
+	return count;
+}
+
+function part2(input: [: str]) -> int32
+{
+	let mut left_list = std::vector<int32>();
+	let mut right_list = std::vector<int32>();
+	for (let line in input) {
+		let [left, right] = line.split("   ");
+		left_list.push_back(parse_int(int32, left));
+		right_list.push_back(parse_int(int32, right));
+	}
+
+	let mut similarity_score = 0;
+	for (let left in left_list)
+	{
+		similarity_score += left * count_value(right_list.as_slice(), left);
+	}
+
+	return similarity_score;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().by_line().collect();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
