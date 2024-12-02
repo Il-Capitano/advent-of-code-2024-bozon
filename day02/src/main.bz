@@ -1,0 +1,124 @@
+import std::format;
+import std::vector;
+import std::math;
+import common;
+
+function parse_input() -> std::vector<std::vector<int32> >
+{
+	let mut result = std::vector<std::vector<int32> >();
+
+	let input = read_file("input.txt");
+	for (let line in input.as_str().by_line())
+	{
+		let &mut levels = result.emplace_back();
+		for (let level in line.split_by(' '))
+		{
+			levels.push_back(parse_int(int32, level));
+		}
+	}
+
+	return move result;
+}
+
+function is_safe(report: [: int32]) -> bool
+{
+	if (report.size() < 2)
+	{
+		return true;
+	}
+
+	let is_increasing = report[1] > report[0];
+	for (let i in 1..report.size())
+	{
+		let diff = report[i] - report[i - 1];
+		if (is_increasing != (diff > 0))
+		{
+			return false;
+		}
+		if (std::abs(diff) < 1 || std::abs(diff) > 3)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+function part1(reports: &std::vector<std::vector<int32> >) -> int32
+{
+	let mut safe_reports = 0;
+	for (let &report in reports)
+	{
+		if (is_safe(report.as_slice()))
+		{
+			safe_reports += 1;
+		}
+	}
+	return safe_reports;
+}
+
+function is_safe(report: [: int32], ignored: usize) -> bool
+{
+	if (report.size() < 3)
+	{
+		return true;
+	}
+
+	let [is_increasing, start] = if (ignored == 0) {
+		[report[2] > report[1], 2uz]
+	} else if (ignored == 1) {
+		[report[2] > report[0], 2uz]
+	} else {
+		[report[1] > report[0], 1uz]
+	};
+	for (let i in start..report.size())
+	{
+		if (i == ignored)
+		{
+			continue;
+		}
+
+		let diff = if (i - 1 == ignored) {
+			report[i] - report[i - 2]
+		} else {
+			report[i] - report[i - 1]
+		};
+
+		if (is_increasing != (diff > 0))
+		{
+			return false;
+		}
+
+		if (std::abs(diff) < 1 || std::abs(diff) > 3)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+function part2(reports: &std::vector<std::vector<int32> >) -> int32
+{
+	let mut safe_reports = 0;
+	for (let &report in reports)
+	{
+		for (let i in 0..report.size())
+		{
+			if (is_safe(report.as_slice(), i))
+			{
+				safe_reports += 1;
+				break;
+			}
+		}
+	}
+	return safe_reports;
+}
+
+function main()
+{
+	let input = parse_input();
+
+	let part1_result = part1(input);
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input);
+	std::print("part 2: {}\n", part2_result);
+}
