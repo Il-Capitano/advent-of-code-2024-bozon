@@ -1,0 +1,142 @@
+import std::format;
+import std::vector;
+import common;
+
+function consume(s: &mut str, pattern: str) -> bool
+{
+	if (s.starts_with(pattern))
+	{
+		s = __builtin_str_from_ptrs(s.begin_ptr() + pattern.size(), s.end_ptr());
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+function consume_number(s: &mut str) -> ?int64
+{
+	let begin = s.begin_ptr();
+	let end = s.end_ptr();
+	let mut it = begin;
+	while (it != end && *it >= '0' as uint8 && *it <= '9' as uint8)
+	{
+		++it;
+	}
+	let num_string = __builtin_str_from_ptrs(begin, it);
+	if (num_string.size() != 0)
+	{
+		s = __builtin_str_from_ptrs(it, end);
+		return parse_int(int64, num_string);
+	}
+	else
+	{
+		return null;
+	}
+}
+
+function step_char(s: &mut str)
+{
+	if (s.size() != 0)
+	{
+		s = __builtin_str_from_ptrs(s.begin_ptr() + 1, s.end_ptr());
+	}
+}
+
+function part1(mut input: str) -> int64
+{
+	let mut sum = 0i64;
+	while (input.size() != 0)
+	{
+		if (!input.consume("mul("))
+		{
+			input.step_char();
+			continue;
+		}
+
+		let a = input.consume_number();
+		if (a == null)
+		{
+			continue;
+		}
+		if (!input.consume(","))
+		{
+			continue;
+		}
+		let b = input.consume_number();
+		if (b == null)
+		{
+			continue;
+		}
+		if (!input.consume(")"))
+		{
+			continue;
+		}
+
+		sum += a.get_value() * b.get_value();
+	}
+
+	return sum;
+}
+
+function part2(mut input: str) -> int64
+{
+	let mut sum = 0i64;
+	let mut mul_enabled = true;
+	while (input.size() != 0)
+	{
+		if (input.consume("do()"))
+		{
+			mul_enabled = true;
+			continue;
+		}
+		if (input.consume("don't()"))
+		{
+			mul_enabled = false;
+			continue;
+		}
+
+		if (!input.consume("mul("))
+		{
+			input.step_char();
+			continue;
+		}
+
+		let a = input.consume_number();
+		if (a == null)
+		{
+			continue;
+		}
+		if (!input.consume(","))
+		{
+			continue;
+		}
+		let b = input.consume_number();
+		if (b == null)
+		{
+			continue;
+		}
+		if (!input.consume(")"))
+		{
+			continue;
+		}
+
+		if (mul_enabled)
+		{
+			sum += a.get_value() * b.get_value();
+		}
+	}
+
+	return sum;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+
+	let part1_result = part1(input.as_str());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_str());
+	std::print("part 2: {}\n", part2_result);
+}
