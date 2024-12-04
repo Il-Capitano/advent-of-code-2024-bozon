@@ -1,0 +1,117 @@
+import std::format;
+import std::vector;
+import common;
+
+function parse_input() -> std::vector<std::vector<char> >
+{
+	let mut result = std::vector<std::vector<char> >();
+	let input = read_file("input.txt");
+	for (let line in input.as_str().by_line())
+	{
+		let &mut row = result.emplace_back();
+		for (let c in line.chars())
+		{
+			row.push_back(c);
+		}
+	}
+
+	return move result;
+}
+
+function count_xmas(input: &std::vector<std::vector<char> >, i_start: usize, j_start: usize) -> int32
+{
+	if (input[i_start, j_start] != 'X')
+	{
+		return 0;
+	}
+
+	let i_start = i_start as isize;
+	let j_start = j_start as isize;
+	let mut count = 0;
+	for (let i_offset in -1iz..=1)
+	{
+		for (let j_offset in -1iz..=1)
+		{
+			if (i_offset == 0 && j_offset == 0)
+			{
+				continue;
+			}
+
+			let i_end = i_start + 3 * i_offset;
+			let j_end = j_start + 3 * j_offset;
+			if (
+				i_end >= 0
+				&& i_end < input.size() as isize
+				&& j_end >= 0
+				&& j_end < input[i_end].size() as isize
+				&& input[i_start + 1 * i_offset, j_start + 1 * j_offset] == 'M'
+				&& input[i_start + 2 * i_offset, j_start + 2 * j_offset] == 'A'
+				&& input[i_start + 3 * i_offset, j_start + 3 * j_offset] == 'S'
+			)
+			{
+				count += 1;
+			}
+		}
+	}
+	return count;
+}
+
+function part1(input: &std::vector<std::vector<char> >) -> int32
+{
+	let mut total_count = 0;
+	for (let i in 0..input.size())
+	{
+		for (let j in 0..input[i].size())
+		{
+			total_count += count_xmas(input, i, j);
+		}
+	}
+	return total_count;
+}
+
+function count_x_mas(input: &std::vector<std::vector<char> >, i: usize, j: usize) -> int32
+{
+	if (i + 2 >= input.size() || j + 2 >= input[i].size())
+	{
+		return 0;
+	}
+
+	let has_left_mas = input[i, j] == 'M' && input[i + 1, j + 1] == 'A' && input[i + 2, j + 2] == 'S';
+	let has_left_sam = input[i, j] == 'S' && input[i + 1, j + 1] == 'A' && input[i + 2, j + 2] == 'M';
+	if (!has_left_mas && !has_left_sam)
+	{
+		return 0;
+	}
+
+	let has_right_mas = input[i + 2, j] == 'M' && input[i + 1, j + 1] == 'A' && input[i, j + 2] == 'S';
+	let has_right_sam = input[i + 2, j] == 'S' && input[i + 1, j + 1] == 'A' && input[i, j + 2] == 'M';
+	if (!has_right_mas && !has_right_sam)
+	{
+		return 0;
+	}
+
+	return 1;
+}
+
+function part2(input: &std::vector<std::vector<char> >) -> int32
+{
+	let mut total_count = 0;
+	for (let i in 0..input.size())
+	{
+		for (let j in 0..input[i].size())
+		{
+			total_count += count_x_mas(input, i, j);
+		}
+	}
+	return total_count;
+}
+
+function main()
+{
+	let input = parse_input();
+
+	let part1_result = part1(input);
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input);
+	std::print("part 2: {}\n", part2_result);
+}
