@@ -1,0 +1,135 @@
+import std::format;
+import std::vector;
+import std::utils;
+import common;
+
+function parse_input() -> [std::vector<[usize, usize]>, std::vector<std::vector<usize> >]
+{
+	let input = read_file("input.txt");
+	let lines = input.as_str().by_line();
+
+	let mut it = lines.begin();
+	let end = lines.end();
+
+	let mut orderings = std::vector<[usize, usize]>();
+	for (; it != end; ++it)
+	{
+		let line = *it;
+		if (line == "")
+		{
+			break;
+		}
+
+		let [left, right] = line.split('|');
+		orderings.push_back([parse_int(usize, left), parse_int(usize, right)]);
+	}
+
+	// empty line
+	++it;
+
+	let mut updates = std::vector<std::vector<usize> >();
+	for (; it != end; ++it)
+	{
+		let line = *it;
+		let &mut update = updates.emplace_back();
+		for (let page in line.split_by(','))
+		{
+			update.push_back(parse_int(usize, page));
+		}
+	}
+
+	return [move orderings, move updates];
+}
+
+function is_ordered(left: usize, right: usize, orderings: [: [usize, usize]]) -> bool
+{
+	for (let &[left_order, right_order] in orderings)
+	{
+		if (left_order == left && right_order == right)
+		{
+			return true;
+		}
+		else if (left_order == right && right_order == left)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+function part1(orderings: [: [usize, usize]], updates: &std::vector<std::vector<usize> >) -> usize
+{
+	let mut page_sum = 0uz;
+	for (let &update in updates)
+	{
+		let mut ordered = true;
+		for (let i in 0..update.size())
+		{
+			for (let j in i + 1..update.size())
+			{
+				ordered &= is_ordered(update[i], update[j], orderings);
+			}
+		}
+
+		if (ordered)
+		{
+			page_sum += update[update.size() / 2];
+		}
+	}
+
+	return page_sum;
+}
+
+function part2(orderings: [: [usize, usize]], updates: &std::vector<std::vector<usize> >) -> usize
+{
+	let mut page_sum = 0uz;
+	for (let &update in updates)
+	{
+		let mut ordered = true;
+		for (let i in 0..update.size())
+		{
+			for (let j in i + 1..update.size())
+			{
+				ordered &= is_ordered(update[i], update[j], orderings);
+			}
+		}
+
+		if (ordered)
+		{
+			continue;
+		}
+
+		let mut update = update;
+		for (let i in 0..update.size())
+		{
+			let mut loop = true;
+			while (loop)
+			{
+				loop = false;
+				for (let j in i + 1..update.size())
+				{
+					if (!is_ordered(update[i], update[j], orderings))
+					{
+						std::swap(update[i], update[j]);
+						loop = true;
+					}
+				}
+			}
+		}
+
+		page_sum += update[update.size()  / 2];
+	}
+
+	return page_sum;
+}
+
+function main()
+{
+	let [orderings, updates] = parse_input();
+
+	let part1_result = part1(orderings.as_slice(), updates);
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(orderings.as_slice(), updates);
+	std::print("part 2: {}\n", part2_result);
+}
