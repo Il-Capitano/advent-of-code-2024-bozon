@@ -1,0 +1,191 @@
+import std::format;
+import std::vector;
+import common;
+
+enum direction
+{
+	up,
+	right,
+	down,
+	left,
+}
+
+enum cell: uint8
+{
+	wall,
+	non_visited,
+	visited,
+}
+
+function turn_right(d: direction) -> direction
+{
+	return switch (d) {
+		.up => .right,
+		.right => .down,
+		.down => .left,
+		.left => .up,
+	};
+}
+
+function step(d: direction, i: isize, j: isize) -> [isize, isize]
+{
+	return switch (d) {
+		.up => [i - 1, j],
+		.down => [i + 1, j],
+		.right => [i, j + 1],
+		.left => [i, j - 1],
+	};
+}
+
+function parse_input() -> [std::vector<std::vector<cell> >, [isize, isize]]
+{
+	let input = read_file("input.txt");
+
+	let mut result = std::vector<std::vector<cell> >();
+	let mut start_i = 0iz;
+	let mut start_j = 0iz;
+
+	let mut i = 0iz;
+	for (let line in input.as_str().by_line())
+	{
+		let mut j = 0iz;
+		let &mut row = result.emplace_back();
+		for (let c in line.chars())
+		{
+			row.push_back(switch (c) {
+				'.' => .non_visited,
+				'#' => .wall,
+				'^' => {
+					start_i = i;
+					start_j = j;
+					.non_visited
+				},
+				else => unreachable,
+			});
+			j += 1;
+		}
+		i += 1;
+	}
+
+	return [move result, [start_i, start_j]];
+}
+
+function in_map(map: &std::vector<std::vector<cell> >, i: isize, j: isize) -> bool
+{
+	return i >= 0 && i < map.size() as isize && j >= 0 && j < map[i].size() as isize;
+}
+
+function part1(map: &std::vector<std::vector<cell> >, mut i: isize, mut j: isize) -> int32
+{
+	let mut map = map;
+	let mut d = direction.up;
+	while (map.in_map(i, j))
+	{
+		map[i, j] = .visited;
+		let [next_i, next_j] = step(d, i, j);
+		if (map.in_map(next_i, next_j) && map[next_i, next_j] == .wall)
+		{
+			d = d.turn_right();
+		}
+		else
+		{
+			i = next_i;
+			j = next_j;
+		}
+	}
+
+	let mut visited = 0;
+	for (let &row in map)
+	{
+		for (let cell in row)
+		{
+			if (cell == .visited)
+			{
+				visited += 1;
+			}
+		}
+	}
+	return visited;
+}
+
+function has_guard_loop(map: &mut std::vector<std::vector<cell> >, mut i: isize, mut j: isize) -> bool
+{
+	let mut d = direction.up;
+	while (map.in_map(i, j))
+	{
+		if (d == .up && map[i, j] == .visited)
+		{
+			return true;
+		}
+
+		if (d == .up)
+		{
+			map[i, j] = .visited;
+		}
+		let [next_i, next_j] = step(d, i, j);
+		if (map.in_map(next_i, next_j) && map[next_i, next_j] == .wall)
+		{
+			d = d.turn_right();
+		}
+		else
+		{
+			i = next_i;
+			j = next_j;
+		}
+	}
+
+	return false;
+}
+
+function clear_map(map: &mut std::vector<std::vector<cell> >)
+{
+	for (let &mut row in map)
+	{
+		for (let &mut cell in row)
+		{
+			if (cell == .visited)
+			{
+				cell = .non_visited;
+			}
+		}
+	}
+}
+
+function part2(map: &std::vector<std::vector<cell> >, start_i: isize, start_j: isize) -> int32
+{
+	let mut map = map;
+
+	let mut looping_position_count = 0;
+	for (let i in 0..map.size())
+	{
+		for (let j in 0..map[i].size())
+		{
+			if (map[i, j] == .wall || (i as isize == start_i && j as isize == start_j))
+			{
+				continue;
+			}
+
+			map[i, j] = .wall;
+
+			if (has_guard_loop(map, start_i, start_j))
+			{
+				looping_position_count += 1;
+			}
+
+			map.clear_map();
+			map[i, j] = .non_visited;
+		}
+	}
+
+	return looping_position_count;
+}
+
+function main()
+{
+	let [map, [start_i, start_j]] = parse_input();
+
+	let part1_result = part1(map, start_i, start_j);
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(map, start_i, start_j);
+	std::print("part 2: {}\n", part2_result);
+}
