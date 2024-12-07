@@ -1,0 +1,134 @@
+import std::format;
+import std::vector;
+import std::utils;
+import common;
+
+enum op
+{
+	add,
+	mul,
+	concat,
+}
+
+function parse_input() -> std::vector<[int64, std::vector<int64>]>
+{
+	let input = read_file("input.txt");
+	let mut result = std::vector<[int64, std::vector<int64>]>();
+	for (let line in input.as_str().by_line())
+	{
+		let [equation_result, inputs] = line.split(": ");
+		let equation_result = parse_int(int64, equation_result);
+		let mut input_nums = std::vector<int64>();
+		for (let input in inputs.split_by(' '))
+		{
+			input_nums.push_back(parse_int(int64, input));
+		}
+		result.push_back([equation_result, move input_nums]);
+	}
+
+	return move result;
+}
+
+function pop_back(v: &mut std::vector)
+{
+	std::assert(v.size() != 0);
+	v.resize(v.size() - 1);
+}
+
+function concat(a: int64, b: int64) -> int64
+{
+	consteval limits: [??: int64] = [
+		10,
+		100,
+		1000,
+		10000,
+		100000,
+		1000000,
+		10000000,
+		100000000,
+		1000000000,
+		10000000000,
+		100000000000,
+		1000000000000,
+		10000000000000,
+		100000000000000,
+		1000000000000000,
+		10000000000000000,
+		100000000000000000,
+		1000000000000000000,
+	];
+	for (let limit in limits)
+	{
+		if (b < limit)
+		{
+			return a * limit + b;
+		}
+	}
+	unreachable;
+}
+
+function is_possible_equation(result: int64, current_result: int64, inputs: [: int64], possible_ops: [: op]) -> bool
+{
+	if (inputs.size() == 0)
+	{
+		return current_result == result;
+	}
+
+	if (current_result > result)
+	{
+		return false;
+	}
+
+	for (let op in possible_ops)
+	{
+		let next_result = switch (op) {
+			.add => current_result + inputs[0],
+			.mul => current_result * inputs[0],
+			.concat => concat(current_result, inputs[0]),
+		};
+		if (is_possible_equation(result, next_result, inputs[1..], possible_ops))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function part1(equations: [: [int64, std::vector<int64>]]) -> int64
+{
+	let mut result_sum = 0i64;
+	for (let &[result, inputs] in equations)
+	{
+		consteval possible_ops: [??: op] = [.add, .mul];
+		if (is_possible_equation(result, inputs[0], inputs.as_slice()[1..], possible_ops))
+		{
+			result_sum += result;
+		}
+	}
+	return result_sum;
+}
+
+function part2(equations: [: [int64, std::vector<int64>]]) -> int64
+{
+	let mut result_sum = 0i64;
+	for (let &[result, inputs] in equations)
+	{
+		consteval possible_ops: [??: op] = [.add, .mul, .concat];
+		if (is_possible_equation(result, inputs[0], inputs.as_slice()[1..], possible_ops))
+		{
+			result_sum += result;
+		}
+	}
+	return result_sum;
+}
+
+function main()
+{
+	let input = parse_input();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
