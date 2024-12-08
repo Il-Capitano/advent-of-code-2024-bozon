@@ -1,0 +1,160 @@
+import std::format;
+import std::vector;
+import std::utils;
+import std::math;
+import common;
+
+function char_to_id(c: char) -> usize
+{
+	if (c >= '0' && c <= '9')
+	{
+		return (c - '0') as usize;
+	}
+	else if (c >= 'A' && c <= 'Z')
+	{
+		return (('9' - '0' + 1) + (c - 'A')) as usize;
+	}
+	else if (c >= 'a' && c <= 'z')
+	{
+		return (('9' - '0' + 1) + ('Z' - 'A' + 1) + (c - 'a')) as usize;
+	}
+	unreachable;
+}
+
+consteval antenna_id_count = (('9' - '0' + 1) + ('Z' - 'A' + 1) + ('z' - 'a' + 1)) as usize;
+
+function parse_input() -> [[isize, isize], [antenna_id_count: std::vector<[isize, isize]>]]
+{
+	let mut height = 0iz;
+	let mut width = 0iz;
+	let mut antennas = [antenna_id_count: std::vector<[isize, isize]>]();
+
+	let input = read_file("input.txt");
+	let mut i = 0iz;
+	for (let line in input.as_str().by_line())
+	{
+		let mut j = 0iz;
+		for (let c in line.chars())
+		{
+			if (c != '.')
+			{
+				antennas[char_to_id(c)].push_back([i, j]);
+			}
+			j += 1;
+		}
+		std::assert(width == 0 || width == j);
+		width = j;
+		i += 1;
+	}
+	height = i;
+
+	return [[height, width], move antennas];
+}
+
+function in_bounds(map: &std::vector<std::vector<bool> >, i: isize, j: isize) -> bool
+{
+	return i >= 0 && i as usize < map.size() && j >= 0 && j as usize < map[i].size();
+}
+
+function part1(height: isize, width: isize, antennas: [: std::vector<[isize, isize]>]) -> int32
+{
+	let mut map = std::vector<std::vector<bool> >();
+	map.resize(height as usize);
+	for (let &mut row in map)
+	{
+		row.resize(width as usize);
+	}
+
+	for (let &antenna_locs in antennas)
+	{
+		for (let a in 0..antenna_locs.size())
+		{
+			for (let b in a + 1..antenna_locs.size())
+			{
+				let [ai, aj] = antenna_locs[a];
+				let [bi, bj] = antenna_locs[b];
+
+				let [n1i, n1j] = [2 * ai - bi, 2 * aj - bj];
+				let [n2i, n2j] = [2 * bi - ai, 2 * bj - aj];
+				if (map.in_bounds(n1i, n1j))
+				{
+					map[n1i, n1j] = true;
+				}
+				if (map.in_bounds(n2i, n2j))
+				{
+					map[n2i, n2j] = true;
+				}
+			}
+		}
+	}
+
+	let mut antinode_count = 0;
+	for (let &row in map)
+	{
+		for (let cell in row)
+		{
+			if (cell)
+			{
+				antinode_count += 1;
+			}
+		}
+	}
+	return antinode_count;
+}
+
+function part2(height: isize, width: isize, antennas: [: std::vector<[isize, isize]>]) -> int32
+{
+	let mut map = std::vector<std::vector<bool> >();
+	map.resize(height as usize);
+	for (let &mut row in map)
+	{
+		row.resize(width as usize);
+	}
+
+	for (let &antenna_locs in antennas)
+	{
+		for (let a in 0..antenna_locs.size())
+		{
+			for (let b in a + 1..antenna_locs.size())
+			{
+				let [ai, aj] = antenna_locs[a];
+				let [bi, bj] = antenna_locs[b];
+
+				let [dai, daj] = [ai - bi, aj - bj];
+				for (let mut [i, j] = [ai, aj]; map.in_bounds(i, j); i += dai, j += daj)
+				{
+					map[i, j] = true;
+				}
+
+				let [dbi, dbj] = [bi - ai, bj - aj];
+				for (let mut [i, j] = [bi, bj]; map.in_bounds(i, j); i += dbi, j += dbj)
+				{
+					map[i, j] = true;
+				}
+			}
+		}
+	}
+
+	let mut antinode_count = 0;
+	for (let &row in map)
+	{
+		for (let cell in row)
+		{
+			if (cell)
+			{
+				antinode_count += 1;
+			}
+		}
+	}
+	return antinode_count;
+}
+
+function main()
+{
+	let [[height, width], antennas] = parse_input();
+
+	let part1_result = part1(height, width, antennas);
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(height, width, antennas);
+	std::print("part 2: {}\n", part2_result);
+}
