@@ -1,0 +1,145 @@
+import std::format;
+import std::vector;
+import std::utils;
+import common;
+
+function part1(input: str) -> usize
+{
+	let file_count = input.size() / 2 + 1;
+	std::assert(input.size() >= 3);
+	std::assert(input.size() % 2 == 1);
+	let mut front = input.begin_ptr();
+	let mut back = input.end_ptr() - 1;
+	let mut front_id = 0uz;
+	let mut back_id = file_count - 1;
+	let mut back_count = (*back - '0' as uint8) as usize;
+	let mut pos = 0uz;
+	let mut checksum = 0uz;
+	while (front != back)
+	{
+		let front_count = *front - '0' as uint8;
+		for (let _ in 0..front_count)
+		{
+			checksum += pos * front_id;
+			pos += 1;
+		}
+		front += 2;
+		front_id += 1;
+
+		let mut front_free_count = (*(front - 1) - '0' as uint8) as usize;
+		while (front_free_count != 0)
+		{
+			checksum += pos * back_id;
+			pos += 1;
+
+			front_free_count -= 1;
+			back_count -= 1;
+
+			if (back_count == 0 && front == back)
+			{
+				break;
+			}
+			else if (back_count == 0)
+			{
+				back -= 2;
+				back_id -= 1;
+				back_count = *back - '0' as uint8;
+			}
+		}
+	}
+	for (let _ in 0..back_count)
+	{
+		checksum += pos * back_id;
+		pos += 1;
+	}
+	return checksum;
+}
+
+function part2(input: str) -> usize
+{
+	let max_id = input.size() / 2;
+	std::assert(input.size() >= 3);
+	std::assert(input.size() % 2 == 1);
+	let mut front = input.begin_ptr();
+	let mut front_id = 0uz;
+	let mut pos = 0uz;
+	let mut checksum = 0uz;
+	let mut moved = std::vector<bool>();
+	moved.resize(max_id + 1);
+
+	while (front + 1 < input.end_ptr())
+	{
+		let front_count = *front - '0' as uint8;
+		if (!moved[front_id])
+		{
+			for (let _ in 0..front_count)
+			{
+				checksum += pos * front_id;
+				pos += 1;
+			}
+		}
+		else
+		{
+			pos += front_count;
+		}
+		front += 2;
+		front_id += 1;
+
+		let mut front_free_count = *(front - 1) - '0' as uint8;
+		while (front_free_count != 0)
+		{
+			let mut back = input.end_ptr() - 1;
+			let mut back_id = max_id;
+			let mut back_count = 0u8;
+			for (; back_id >= front_id; back -= 2, back_id -= 1)
+			{
+				if (moved[back_id])
+				{
+					continue;
+				}
+
+				back_count = *back - '0' as uint8;
+				if (back_count <= front_free_count)
+				{
+					break;
+				}
+			}
+			if (back_count > front_free_count || back_count == 0)
+			{
+				break;
+			}
+
+			front_free_count -= back_count;
+			moved[back_id] = true;
+			for (let _ in 0..back_count)
+			{
+				checksum += pos * back_id;
+				pos += 1;
+			}
+		}
+		pos += front_free_count;
+	}
+
+	if (!moved[front_id])
+	{
+		let front_count = *front - '0' as uint8;
+		for (let _ in 0..front_count)
+		{
+			checksum += pos * front_id;
+			pos += 1;
+		}
+	}
+
+	return checksum;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().trim();
+
+	let part1_result = part1(input);
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input);
+	std::print("part 2: {}\n", part2_result);
+}
