@@ -1,0 +1,175 @@
+import std::format;
+import std::vector;
+import common;
+
+function parse_input() -> std::vector<std::vector<int32> >
+{
+	let mut result = std::vector<std::vector<int32> >();
+
+	let input = read_file("input.txt");
+	for (let line in input.as_str().by_line())
+	{
+		let &mut row = result.emplace_back();
+		for (let c in line.chars())
+		{
+			row.push_back(c - '0');
+		}
+	}
+
+	return move result;
+}
+
+function init_2d_array(T: typename, height: usize, width: usize) -> std::vector<std::vector<T> >
+{
+	let mut result = std::vector<std::vector<T> >();
+	result.resize(height);
+	for (let &mut row in result)
+	{
+		row.resize(width);
+	}
+
+	return move result;
+}
+
+function get_number_of_reverse_routes(
+	map: &std::vector<std::vector<int32> >,
+	visited: &mut std::vector<std::vector<bool> >,
+	i: usize,
+	j: usize,
+	current_height: int32
+) -> int32
+{
+	if (visited[i, j])
+	{
+		return 0;
+	}
+	visited[i, j] = true;
+
+	if (current_height == 0)
+	{
+		return 1;
+	}
+
+	let mut result = 0;
+	if (i > 0 && map[i - 1, j] == current_height - 1)
+	{
+		result += get_number_of_reverse_routes(map, visited, i - 1, j, current_height - 1);
+	}
+	if (i + 1 < map.size() && map[i + 1, j] == current_height - 1)
+	{
+		result += get_number_of_reverse_routes(map, visited, i + 1, j, current_height - 1);
+	}
+	if (j > 0 && map[i, j - 1] == current_height - 1)
+	{
+		result += get_number_of_reverse_routes(map, visited, i, j - 1, current_height - 1);
+	}
+	if (j + 1 < map[i].size() && map[i, j + 1] == current_height - 1)
+	{
+		result += get_number_of_reverse_routes(map, visited, i, j + 1, current_height - 1);
+	}
+	return result;
+}
+
+function clear_2d_array(a: &mut std::vector<std::vector<bool> >)
+{
+	for (let &mut row in a)
+	{
+		for (let &mut cell in row)
+		{
+			cell = false;
+		}
+	}
+}
+
+function part1(map: &std::vector<std::vector<int32> >) -> int32
+{
+	let mut visited = init_2d_array(bool, map.size(), map[0].size());
+
+	let mut total_trail_score = 0;
+	for (let i in 0..map.size())
+	{
+		for (let j in 0..map[i].size())
+		{
+			if (map[i, j] == 9)
+			{
+				visited.clear_2d_array();
+				total_trail_score += get_number_of_reverse_routes(map, visited, i, j, 9);
+			}
+		}
+	}
+	return total_trail_score;
+}
+
+function part2(map: &std::vector<std::vector<int32> >) -> int32
+{
+	let mut routes = init_2d_array(int32, map.size(), map[0].size());
+
+	for (let i in 0..map.size())
+	{
+		for (let j in 0..map[i].size())
+		{
+			if (map[i, j] == 9)
+			{
+				routes[i, j] = 1;
+			}
+			else
+			{
+				routes[i, j] = 0;
+			}
+		}
+	}
+
+	for (let height in (0..9).reversed())
+	{
+		for (let i in 0..map.size())
+		{
+			for (let j in 0..map[i].size())
+			{
+				if (map[i, j] != height)
+				{
+					continue;
+				}
+
+				if (i > 0 && map[i - 1, j] == height + 1)
+				{
+					routes[i, j] += routes[i - 1, j];
+				}
+				if (i + 1 < map.size() && map[i + 1, j] == height + 1)
+				{
+					routes[i, j] += routes[i + 1, j];
+				}
+				if (j > 0 && map[i, j - 1] == height + 1)
+				{
+					routes[i, j] += routes[i, j - 1];
+				}
+				if (j + 1 < map[i].size() && map[i, j + 1] == height + 1)
+				{
+					routes[i, j] += routes[i, j + 1];
+				}
+			}
+		}
+	}
+
+	let mut total_scores = 0;
+	for (let i in 0..map.size())
+	{
+		for (let j in 0..map[i].size())
+		{
+			if (map[i, j] == 0)
+			{
+				total_scores += routes[i, j];
+			}
+		}
+	}
+	return total_scores;
+}
+
+function main()
+{
+	let input = parse_input();
+
+	let part1_result = part1(input);
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input);
+	std::print("part 2: {}\n", part2_result);
+}
