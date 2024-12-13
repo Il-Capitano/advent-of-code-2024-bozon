@@ -1,0 +1,115 @@
+import std::format;
+import std::vector;
+import std::math;
+import common;
+
+struct machine_info
+{
+	.ax: int32;
+	.ay: int32;
+	.bx: int32;
+	.by: int32;
+	.px: int32;
+	.py: int32;
+}
+
+function parse_input() -> std::vector<machine_info>
+{
+	let input = read_file("input.txt");
+	let mut result = std::vector<machine_info>();
+	for (let machine_description in input.as_str().split_by("\n\n"))
+	{
+		let [a_description, machine_description] = machine_description.split('\n');
+		let [b_description, prize_description] = machine_description.split('\n');
+		let [_, a_description] = a_description.split("X+");
+		let [ax, ay] = a_description.split(", Y+");
+		let [_, b_description] = b_description.split("X+");
+		let [bx, by] = b_description.split(", Y+");
+		let [_, prize_description] = prize_description.split("X=");
+		let [px, py] = prize_description.split(", Y=");
+		result.push_back(machine_info[
+			parse_int(int32, ax),
+			parse_int(int32, ay),
+			parse_int(int32, bx),
+			parse_int(int32, by),
+			parse_int(int32, px),
+			parse_int(int32, py),
+		]);
+	}
+	return move result;
+}
+
+function part1(infos: [: machine_info]) -> int32
+{
+	let mut total_token_cost = 0;
+	for (let &info in infos)
+	{
+		let mut token_cost: ?int32 = null;
+		for (let a_pushes in 1..=100)
+		{
+			for (let b_pushes in 1..=100)
+			{
+				if (a_pushes * info.ax + b_pushes * info.bx == info.px && a_pushes * info.ay + b_pushes * info.by == info.py)
+				{
+					if (token_cost == null)
+					{
+						token_cost = a_pushes * 3 + b_pushes;
+					}
+					else
+					{
+						token_cost = std::min(token_cost.get_value(), a_pushes * 3 + b_pushes);
+					}
+				}
+			}
+		}
+		if (token_cost != null)
+		{
+			total_token_cost += token_cost.get_value();
+		}
+	}
+	return total_token_cost;
+}
+
+function part2(infos: [: machine_info]) -> int64
+{
+	consteval offset = 10000000000000i64;
+	let mut total_token_cost = 0i64;
+	for (let &info in infos)
+	{
+		let ax: int64 = info.ax;
+		let ay: int64 = info.ay;
+		let bx: int64 = info.bx;
+		let by: int64 = info.by;
+		let px: int64 = info.px + offset;
+		let py: int64 = info.py + offset;
+		// px = a * ax + b * bx
+		// => a = (px - b * bx) / ax
+		//
+		// py = a * ay + b * by
+		// => py = (px - b * bx) / ax * ay + b * by
+		// => py * ax = (px - b * bx) * ay + b * by * ax
+		// => py * ax - px * ay = -b * bx * ay + b * by * ax
+		// => py * ax - px * ay = b * (-bx * ay + by * ax)
+		// => py * ax - px * ay = b * (-bx * ay + by * ax)
+		// => (py * ax - px * ay) / (-bx * ay + by * ax) = b
+		let num = py * ax - px * ay;
+		let denom = by * ax - bx * ay;
+		if (num % denom == 0)
+		{
+			let b_pushes = num / denom;
+			let a_pushes = (px - b_pushes * bx) / ax;
+			total_token_cost += a_pushes * 3 + b_pushes;
+		}
+	}
+	return total_token_cost;
+}
+
+function main()
+{
+	let input = parse_input();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
