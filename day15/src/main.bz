@@ -1,0 +1,278 @@
+import std::format;
+import std::vector;
+import common;
+
+enum cell
+{
+	empty,
+	wall,
+	box,
+	left_box,
+	right_box,
+}
+
+enum direction
+{
+	north,
+	east,
+	south,
+	west,
+}
+
+function parse_input() -> [std::vector<std::vector<cell> >, [isize, isize], std::vector<direction>]
+{
+	let input = read_file("input.txt");
+	let lines = input.as_str().by_line();
+	let mut it = lines.begin();
+	let end = lines.end();
+
+	let mut map = std::vector<std::vector<cell> >();
+	let mut robot_position = [0iz, 0iz];
+	for (; it != end; ++it)
+	{
+		let line = *it;
+		if (line == "")
+		{
+			break;
+		}
+		let &mut row = map.emplace_back();
+		for (let c in line.chars())
+		{
+			row.push_back(switch (c) {
+				'.' => .empty,
+				'#' => .wall,
+				'O' => .box,
+				'@' => {
+					robot_position = [map.size() as isize - 1, row.size() as isize];
+					.empty
+				},
+				else => unreachable,
+			});
+		}
+	}
+
+	let mut moves = std::vector<direction>();
+	for (; it != end; ++it)
+	{
+		let line = *it;
+		for (let c in line.chars())
+		{
+			moves.push_back(switch (c) {
+				'^' => .north,
+				'>' => .east,
+				'v' => .south,
+				'<' => .west,
+				else => unreachable,
+			});
+		}
+	}
+
+	return [move map, robot_position, move moves];
+}
+
+function get_direction_offset(d: direction) -> [isize, isize]
+{
+	return switch (d) {
+		.north => [-1, 0],
+		.east => [0, 1],
+		.south => [1, 0],
+		.west => [0, -1],
+	};
+}
+
+function part1(map: &std::vector<std::vector<cell> >, mut robot_position: [isize, isize], moves: [: direction]) -> usize
+{
+	let mut map = map;
+	for (let m in moves)
+	{
+		let d = get_direction_offset(m);
+		switch (map[robot_position[0] + d[0], robot_position[1] + d[1]])
+		{
+			.empty => {
+				robot_position[0] += d[0];
+				robot_position[1] += d[1];
+			},
+			.wall => {},
+			.box => {
+				for (let mut i = 1iz;; ++i)
+				{
+					let [pi, pj] = [robot_position[0] + i * d[0], robot_position[1] + i * d[1]];
+					if (map[pi, pj] == .wall)
+					{
+						break;
+					}
+					else if (map[pi, pj] == .empty)
+					{
+						robot_position[0] += d[0];
+						robot_position[1] += d[1];
+						map[robot_position[0], robot_position[1]] = .empty;
+						map[pi, pj] = .box;
+						break;
+					}
+				}
+			},
+			else => unreachable,
+		}
+	}
+
+	let mut gps_sum = 0uz;
+	for (let i in 0..map.size())
+	{
+		for (let j in 0..map[i].size())
+		{
+			if (map[i, j] == .box)
+			{
+				gps_sum += 100 * i + j;
+			}
+		}
+	}
+	return gps_sum;
+}
+
+function will_move(map: &std::vector<std::vector<cell> >, pos: [isize, isize], d: direction) -> bool
+{
+	if (map[pos[0], pos[1]] == .wall)
+	{
+		return false;
+	}
+	else if (map[pos[0], pos[1]] == .empty)
+	{
+		return true;
+	}
+
+	let offset = get_direction_offset(d);
+	switch (d)
+	{
+		.east, .west => {
+			return will_move(map, [pos[0], pos[1] + 2 * offset[1]], d);
+		},
+		.north, .south => {
+			switch (map[pos[0], pos[1]])
+			{
+				.left_box => {
+					return will_move(map, [pos[0] + offset[0], pos[1]], d)
+						&& will_move(map, [pos[0] + offset[0], pos[1] + 1], d);
+				},
+				.right_box => {
+					return will_move(map, [pos[0] + offset[0], pos[1]], d)
+						&& will_move(map, [pos[0] + offset[0], pos[1] - 1], d);
+				},
+				else => unreachable,
+			}
+		}
+	}
+}
+
+function do_box_moves(map: &mut std::vector<std::vector<cell> >, pos: [isize, isize], d: direction)
+{
+	if (map[pos[0], pos[1]] == .wall)
+	{
+		unreachable;
+	}
+	else if (map[pos[0], pos[1]] == .empty)
+	{
+		return;
+	}
+
+	let offset = get_direction_offset(d);
+	switch (d)
+	{
+		.east, .west => {
+			do_box_moves(map, [pos[0], pos[1] + 2 * offset[1]], d);
+			map[pos[0], pos[1] + 2 * offset[1]] = map[pos[0], pos[1] + offset[1]];
+			map[pos[0], pos[1] + offset[1]] = map[pos[0], pos[1]];
+			map[pos[0], pos[1]] = .empty;
+		},
+		.north, .south => {
+			switch (map[pos[0], pos[1]])
+			{
+				.left_box => {
+					do_box_moves(map, [pos[0] + offset[0], pos[1]], d);
+					do_box_moves(map, [pos[0] + offset[0], pos[1] + 1], d);
+					map[pos[0] + offset[0], pos[1]] = .left_box;
+					map[pos[0] + offset[0], pos[1] + 1] = .right_box;
+					map[pos[0], pos[1]] = .empty;
+					map[pos[0], pos[1] + 1] = .empty;
+				},
+				.right_box => {
+					do_box_moves(map, [pos[0] + offset[0], pos[1]], d);
+					do_box_moves(map, [pos[0] + offset[0], pos[1] - 1], d);
+					map[pos[0] + offset[0], pos[1] - 1] = .left_box;
+					map[pos[0] + offset[0], pos[1]] = .right_box;
+					map[pos[0], pos[1] - 1] = .empty;
+					map[pos[0], pos[1]] = .empty;
+				},
+				else => unreachable,
+			}
+		}
+	}
+}
+
+function part2(small_map: &std::vector<std::vector<cell> >, mut robot_position: [isize, isize], moves: [: direction]) -> usize
+{
+	let mut map = std::vector<std::vector<cell> >();
+	map.reserve(small_map.size());
+	for (let &small_row in small_map)
+	{
+		let &mut row = map.emplace_back();
+		row.reserve(2 * small_row.size());
+		for (let cell in small_row)
+		{
+			switch (cell)
+			{
+				.empty => {
+					row.push_back(.empty);
+					row.push_back(.empty);
+				},
+				.wall => {
+					row.push_back(.wall);
+					row.push_back(.wall);
+				},
+				.box => {
+					row.push_back(.left_box);
+					row.push_back(.right_box);
+				},
+				else => unreachable,
+			}
+		}
+	}
+	robot_position[1] *= 2;
+
+	for (let m in moves)
+	{
+		let d = get_direction_offset(m);
+		let p = [robot_position[0] + d[0], robot_position[1] + d[1]];
+		if (map[p[0], p[1]] == .empty)
+		{
+			robot_position = p;
+		}
+		else if (will_move(map, p, m))
+		{
+			do_box_moves(map, p, m);
+			robot_position = p;
+		}
+	}
+
+	let mut gps_sum = 0uz;
+	for (let i in 0..map.size())
+	{
+		for (let j in 0..map[i].size())
+		{
+			if (map[i, j] == .left_box)
+			{
+				gps_sum += 100 * i + j;
+			}
+		}
+	}
+	return gps_sum;
+}
+
+function main()
+{
+	let [map, robot_position, moves] = parse_input();
+
+	let part1_result = part1(map, robot_position, moves.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(map, robot_position, moves.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
