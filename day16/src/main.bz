@@ -1,0 +1,254 @@
+import std::format;
+import std::vector;
+import std::math;
+import common;
+
+enum cell: uint8
+{
+	empty,
+	wall,
+}
+
+enum direction: uint8
+{
+	north,
+	east,
+	south,
+	west,
+}
+
+function turn_left(d: direction) -> direction
+{
+	return switch (d) {
+		.north => .west,
+		.east => .north,
+		.south => .east,
+		.west => .south,
+	};
+}
+
+function turn_right(d: direction) -> direction
+{
+	return switch (d) {
+		.north => .east,
+		.east => .south,
+		.south => .west,
+		.west => .north,
+	};
+}
+
+function get_offset(d: direction) -> [isize, isize]
+{
+	return switch (d) {
+		.north => [-1, 0],
+		.east => [0, 1],
+		.south => [1, 0],
+		.west => [0, -1],
+	};
+}
+
+function parse_input() -> [std::vector<std::vector<cell> >, [isize, isize], [isize, isize]]
+{
+	let input = read_file("input.txt");
+	let mut map = std::vector<std::vector<cell> >();
+	let mut start_pos = [0iz, 0iz];
+	let mut end_pos = [0iz, 0iz];
+	let mut i = 0iz;
+	for (let line in input.as_str().by_line())
+	{
+		let &mut row = map.emplace_back();
+		let mut j = 0iz;
+		for (let c in line.chars())
+		{
+			row.push_back(switch (c) {
+				'.' => .empty,
+				'#' => .wall,
+				'S' => {
+					start_pos = [i, j];
+					.empty
+				},
+				'E' => {
+					end_pos = [i, j];
+					.empty
+				},
+				else => unreachable,
+			});
+			j += 1;
+		}
+		i += 1;
+	}
+
+	return [move map, start_pos, end_pos];
+}
+
+function part1(map: &std::vector<std::vector<cell> >, start_pos: [isize, isize], end_pos: [isize, isize]) -> int32
+{
+	let mut min_scores = std::vector<std::vector<int32> >();
+	min_scores.resize(map.size());
+	for (let i in 0..map.size())
+	{
+		min_scores[i].resize(map[i].size());
+		for (let &mut score in min_scores[i])
+		{
+			score = int32.max;
+		}
+	}
+
+	let mut current_positions = std::vector<[[isize, isize], direction, int32]>();
+	current_positions.push_back([start_pos, .east, 0]);
+	min_scores[start_pos[0], start_pos[1]] = 0;
+
+	while (current_positions.size() != 0)
+	{
+		let mut new_current_positions = std::vector<[[isize, isize], direction, int32]>();
+		for (let [pos, dir, score] in current_positions)
+		{
+			min_scores[pos[0], pos[1]] = std::min(min_scores[pos[0], pos[1]], score);
+			if (min_scores[pos[0], pos[1]] + 2000 <= score)
+			{
+				continue;
+			}
+
+			let left_dir = dir.turn_left();
+			new_current_positions.push_back([pos, left_dir, score + 1000]);
+			let right_dir = dir.turn_right();
+			new_current_positions.push_back([pos, right_dir, score + 1000]);
+
+			let offset = dir.get_offset();
+			let [i, j] = [pos[0] + offset[0], pos[1] + offset[1]];
+			if (map[i, j] == .empty)
+			{
+				new_current_positions.push_back([[i, j], dir, score + 1]);
+			}
+		}
+		current_positions = move new_current_positions;
+	}
+
+	return min_scores[end_pos[0], end_pos[1]];
+}
+
+function search_best_path(
+	map: &std::vector<std::vector<cell> >,
+	pos: [isize, isize],
+	dir: direction,
+	score: int32,
+	path: &mut std::vector<[isize, isize]>,
+	end_pos: [isize, isize],
+	min_scores: &std::vector<std::vector<int32> >,
+	best_path_cells: &mut std::vector<std::vector<bool> >
+)
+{
+	if (score > min_scores[pos[0], pos[1]] + 1000)
+	{
+		return;
+	}
+	if (pos[0] == end_pos[0] && pos[1] == end_pos[1] && score == min_scores[pos[0], pos[1]])
+	{
+		for (let [i, j] in path)
+		{
+			best_path_cells[i, j] = true;
+		}
+		return;
+	}
+
+	let left_dir = dir.turn_left();
+	search_best_path(map, pos, left_dir, score + 1000, path, end_pos, min_scores, best_path_cells);
+	let right_dir = dir.turn_right();
+	search_best_path(map, pos, right_dir, score + 1000, path, end_pos, min_scores, best_path_cells);
+
+	let offset = dir.get_offset();
+	let [i, j] = [pos[0] + offset[0], pos[1] + offset[1]];
+	if (map[i, j] == .empty)
+	{
+		path.push_back([i, j]);
+		search_best_path(map, [i, j], dir, score + 1, path, end_pos, min_scores, best_path_cells);
+		path.resize(path.size() - 1);
+	}
+}
+
+function part2(map: &std::vector<std::vector<cell> >, start_pos: [isize, isize], end_pos: [isize, isize]) -> int32
+{
+	let mut min_scores = std::vector<std::vector<int32> >();
+	min_scores.resize(map.size());
+	for (let i in 0..map.size())
+	{
+		min_scores[i].resize(map[i].size());
+		for (let &mut score in min_scores[i])
+		{
+			score = int32.max;
+		}
+	}
+
+	let mut current_positions = std::vector<[[isize, isize], direction, int32]>();
+	current_positions.push_back([start_pos, .east, 0]);
+	min_scores[start_pos[0], start_pos[1]] = 0;
+
+	while (current_positions.size() != 0)
+	{
+		let mut new_current_positions = std::vector<[[isize, isize], direction, int32]>();
+		for (let [pos, dir, score] in current_positions)
+		{
+			min_scores[pos[0], pos[1]] = std::min(min_scores[pos[0], pos[1]], score);
+			if (min_scores[pos[0], pos[1]] + 2000 <= score)
+			{
+				continue;
+			}
+
+			let left_dir = dir.turn_left();
+			new_current_positions.push_back([pos, left_dir, score + 1000]);
+			let right_dir = dir.turn_right();
+			new_current_positions.push_back([pos, right_dir, score + 1000]);
+
+			let offset = dir.get_offset();
+			let [i, j] = [pos[0] + offset[0], pos[1] + offset[1]];
+			if (map[i, j] == .empty)
+			{
+				new_current_positions.push_back([[i, j], dir, score + 1]);
+			}
+		}
+		current_positions = move new_current_positions;
+	}
+
+	let mut best_path_cells = std::vector<std::vector<bool> >();
+	best_path_cells.resize(min_scores.size());
+	for (let &mut row in best_path_cells)
+	{
+		row.resize(min_scores[0].size());
+	}
+
+	let mut path = std::vector<[isize, isize]>();
+	path.push_back(start_pos);
+	search_best_path(
+		map,
+		start_pos,
+		.east,
+		0,
+		path,
+		end_pos,
+		min_scores,
+		best_path_cells,
+	);
+
+	let mut tile_count = 0;
+	for (let &row in best_path_cells)
+	{
+		for (let is_on_best_path in row)
+		{
+			if (is_on_best_path)
+			{
+				tile_count += 1;
+			}
+		}
+	}
+	return tile_count;
+}
+
+function main()
+{
+	let [map, start_pos, end_pos] = parse_input();
+
+	let part1_result = part1(map, start_pos, end_pos);
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(map, start_pos, end_pos);
+	std::print("part 2: {}\n", part2_result);
+}
