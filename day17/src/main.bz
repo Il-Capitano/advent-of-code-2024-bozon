@@ -1,0 +1,216 @@
+import std::format;
+import std::vector;
+import std::utils;
+import std::string;
+import common;
+
+struct cpu_state
+{
+	.a: int64;
+	.b: int64;
+	.c: int64;
+	.program: std::vector<int8>;
+}
+
+function parse_input() -> cpu_state
+{
+	let input = read_file("input.txt");
+	let lines = input.as_str().by_line();
+	let mut it = lines.begin();
+	let end = lines.end();
+
+	let mut result = cpu_state();
+	let a = *it;
+	let [_, a] = a.split(": ");
+	result.a = parse_int(int64, a);
+	++it;
+
+	let b = *it;
+	let [_, b] = b.split(": ");
+	result.b = parse_int(int64, b);
+	++it;
+
+	let c = *it;
+	let [_, c] = c.split(": ");
+	result.c = parse_int(int64, c);
+	++it;
+
+	std::assert(*it == "");
+	++it;
+
+	let program = *it;
+	let [_, program] = program.split(": ");
+	for (let code in program.split_by(','))
+	{
+		result.program.push_back(parse_int(int8, code));
+	}
+	++it;
+	std::assert(it == end);
+
+	return move result;
+}
+
+function get_combo_operand_value(operand: int8, a: int64, b: int64, c: int64) -> int64
+{
+	return switch (operand) {
+		0, 1, 2, 3 => operand,
+		4 => a,
+		5 => b,
+		6 => c,
+		7 => unreachable,
+		else => unreachable,
+	};
+}
+
+function get_program_output(state: &cpu_state) -> std::vector<int8>
+{
+	let mut a = state.a;
+	let mut b = state.b;
+	let mut c = state.c;
+	let mut pc = 0uz;
+	let mut output = std::vector<int8>();
+
+	while (pc < state.program.size())
+	{
+		switch (state.program[pc]) {
+			// adv
+			0 => {
+				let op = state.program[pc + 1].get_combo_operand_value(a, b, c);
+				a /= (1u64 << op) as int64;
+				pc += 2;
+			},
+			// bxl
+			1 => {
+				let op = state.program[pc + 1];
+				b = (b as uint64 ^ op as uint64) as int64;
+				pc += 2;
+			},
+			// bst
+			2 => {
+				let op = state.program[pc + 1].get_combo_operand_value(a, b, c);
+				b = op % 8;
+				pc += 2;
+			},
+			// jnz
+			3 => {
+				let op = state.program[pc + 1];
+				if (a == 0)
+				{
+					pc += 2;
+				}
+				else
+				{
+					pc = op as usize;
+				}
+			},
+			// bxc
+			4 => {
+				b = (b as uint64 ^ c as uint64) as int64;
+				pc += 2;
+			},
+			// out
+			5 => {
+				let op = state.program[pc + 1].get_combo_operand_value(a, b, c);
+				output.push_back((op % 8) as int8);
+				pc += 2;
+			},
+			// bdv
+			6 => {
+				let op = state.program[pc + 1].get_combo_operand_value(a, b, c);
+				b = a / (1u64 << op) as int64;
+				pc += 2;
+			},
+			// cdv
+			7 => {
+				let op = state.program[pc + 1].get_combo_operand_value(a, b, c);
+				c = a / (1u64 << op) as int64;
+				pc += 2;
+			},
+			else => unreachable,
+		}
+	}
+
+	return move output;
+}
+
+// bst a
+// bxl 7
+// cdv b
+// adv 3
+// bxc
+// bxl 7
+// out b
+// jnz 0
+
+// while (a != 0) {
+//   b = a % 8;
+//   b = b ^ 7;
+//   c = a >> b;
+//   a = a >> 3;
+//   b = b ^ c;
+//   b = b ^ 7;
+//   out(b)
+// }
+
+function part1(state: &cpu_state) -> std::string
+{
+	let output = get_program_output(state);
+
+	let mut output_string = std::format("{}", output[0]);
+	for(let i in 1..output.size())
+	{
+		output_string += std::format(",{}", output[i]);
+	}
+
+	return move output_string;
+}
+
+function get_next_bits(a: int64, state: &mut cpu_state) -> ?int64
+{
+	for (let new_bits in (0..8))
+	{
+		state.a = 8 * a + new_bits;
+		let output = get_program_output(state);
+		if (
+			output.size() != 0
+			&& output.size() <= state.program.size()
+			&& output.as_slice() == state.program.as_slice()[state.program.size() - output.size()..]
+		)
+		{
+			if (output.size() == state.program.size())
+			{
+				return 8 * a + new_bits;
+			}
+			let total_a = get_next_bits(8 * a + new_bits, state);
+			if (total_a != null)
+			{
+				return total_a;
+			}
+		}
+	}
+	return null;
+}
+
+function part2(state: &cpu_state) -> int64
+{
+	let mut state = state;
+	for (let bits in 1..8)
+	{
+		let result = get_next_bits(bits, state);
+		if (result != null)
+		{
+			return result.get_value();
+		}
+	}
+	unreachable;
+}
+
+function main()
+{
+	let input = parse_input();
+
+	let part1_result = part1(input);
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input);
+	std::print("part 2: {}\n", part2_result);
+}
