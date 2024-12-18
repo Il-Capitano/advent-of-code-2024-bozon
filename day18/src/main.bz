@@ -1,0 +1,136 @@
+import std::format;
+import std::vector;
+import std::utils;
+import common;
+
+function parse_input() -> std::vector<[usize, usize]>
+{
+	let input = read_file("input.txt");
+	let mut result = std::vector<[usize, usize]>();
+	for (let line in input.as_str().by_line())
+	{
+		let [x, y] = line.split(',');
+		result.push_back([parse_int(usize, y), parse_int(usize, x)]);
+	}
+
+	return move result;
+}
+
+consteval memory_size = 71uz;
+
+function fill_costs(costs: &mut std::vector<std::vector<int32> >)
+{
+	let mut queue = std::vector<[[usize, usize], int32]>();
+	let mut new_queue = std::vector<[[usize, usize], int32]>();
+	queue.push_back([[0, 0], 0]);
+	while (queue.size() != 0)
+	{
+		for (let &[[i, j], cost] in queue)
+		{
+			if (costs[i, j] < 0 || costs[i, j] <= cost)
+			{
+				continue;
+			}
+			costs[i, j] = cost;
+			if (i > 0)
+			{
+				new_queue.push_back([[i - 1, j], cost + 1]);
+			}
+			if (i < memory_size - 1)
+			{
+				new_queue.push_back([[i + 1, j], cost + 1]);
+			}
+			if (j > 0)
+			{
+				new_queue.push_back([[i, j - 1], cost + 1]);
+			}
+			if (j < memory_size - 1)
+			{
+				new_queue.push_back([[i, j + 1], cost + 1]);
+			}
+		}
+
+		std::swap(queue, new_queue);
+		new_queue.clear();
+	}
+}
+
+function part1(input: [: [usize, usize]]) -> int32
+{
+	let mut costs = std::vector<std::vector<int32> >();
+	costs.resize(memory_size);
+	for (let &mut row in costs)
+	{
+		row.resize(memory_size);
+		for (let &mut cost in row)
+		{
+			cost = int32.max;
+		}
+	}
+
+	for (let i in 0..1024)
+	{
+		let [i, j] = input[i];
+		costs[i, j] = -1;
+	}
+
+	fill_costs(costs);
+
+	return costs[memory_size - 1, memory_size - 1];
+}
+
+function part2(input: [: [usize, usize]]) -> [usize, usize]
+{
+	let mut costs = std::vector<std::vector<int32> >();
+	costs.resize(memory_size);
+	for (let &mut row in costs)
+	{
+		row.resize(memory_size);
+		for (let &mut cost in row)
+		{
+			cost = int32.max;
+		}
+	}
+
+	let mut low = 0uz;
+	let mut high = input.size();
+
+	while (low < high)
+	{
+		let mid = low + (high - low) / 2;
+		for (let &mut row in costs)
+		{
+			for (let &mut cost in row)
+			{
+				cost = int32.max;
+			}
+		}
+		for (let i in 0..=mid)
+		{
+			let [i, j] = input[i];
+			costs[i, j] = -1;
+		}
+
+		fill_costs(costs);
+		if (costs[memory_size - 1, memory_size - 1] != int32.max)
+		{
+			low = mid + 1;
+		}
+		else
+		{
+			high = mid;
+		}
+	}
+
+	return input[low];
+}
+
+function main()
+{
+	let input = parse_input();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {},{}\n", part2_result[1], part2_result[0]);
+}
