@@ -1,0 +1,112 @@
+import std::format;
+import std::vector;
+import std::utils;
+import std::string;
+import common;
+
+function parse_input() -> [std::vector<std::string>, std::vector<std::string>]
+{
+	let input = read_file("input.txt");
+	let lines = input.as_str().by_line();
+	let mut it = lines.begin();
+	let end = lines.end();
+	std::assert(it != end);
+
+	let mut towels = std::vector<std::string>();
+	for (let towel in it->split_by(", "))
+	{
+		towels.push_back(std::string(towel));
+	}
+	++it;
+	std::assert(it != end && *it == "");
+	++it;
+
+	let mut patterns = std::vector<std::string>();
+	for (; it != end; ++it)
+	{
+		patterns.push_back(std::string(*it));
+	}
+
+	return [move towels, move patterns];
+}
+
+function substr(s: str, n: usize) -> str
+{
+	return __builtin_str_from_ptrs(s.begin_ptr() + n, s.end_ptr());
+}
+
+function is_possible_pattern(towels: [: std::string], pattern: str) -> bool
+{
+	if (pattern.size() == 0)
+	{
+		return true;
+	}
+	for (let &towel in towels)
+	{
+		let towel = towel.as_str();
+		if (pattern.starts_with(towel) && is_possible_pattern(towels, pattern.substr(towel.size())))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+function part1(towels: [: std::string], patterns: [: std::string]) -> int32
+{
+	let mut possible_count = 0;
+	for (let &pattern in patterns)
+	{
+		if (is_possible_pattern(towels, pattern.as_str()))
+		{
+			possible_count += 1;
+		}
+	}
+	return possible_count;
+}
+
+function number_of_possible_pattern_arrangements(towels: [: std::string], pattern: str) -> usize
+{
+	if (pattern.size() == 0)
+	{
+		return 1;
+	}
+
+	let mut counts = std::vector<usize>();
+	counts.resize(pattern.size() + 1);
+	counts[0] = 1;
+
+	for (let i in 1..counts.size())
+	{
+		let pattern = pattern.substr(pattern.size() - i);
+		for (let &towel in towels)
+		{
+			let towel = towel.as_str();
+			if (pattern.starts_with(towel))
+			{
+				counts[i] += counts[i - towel.size()];
+			}
+		}
+	}
+	return counts[counts.size() - 1];
+}
+
+function part2(towels: [: std::string], patterns: [: std::string]) -> usize
+{
+	let mut number_of_arrangements = 0uz;
+	for (let &pattern in patterns)
+	{
+		number_of_arrangements += number_of_possible_pattern_arrangements(towels, pattern.as_str());
+	}
+	return number_of_arrangements;
+}
+
+function main()
+{
+	let [towels, patterns] = parse_input();
+
+	let part1_result = part1(towels.as_slice(), patterns.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(towels.as_slice(), patterns.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
