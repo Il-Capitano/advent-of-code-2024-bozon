@@ -1,0 +1,205 @@
+import std::format;
+import std::vector;
+import std::utils;
+import std::math;
+import common;
+
+type position = [usize, usize];
+
+enum cell
+{
+	empty,
+	wall,
+}
+
+operator [] (v: &std::vector<std::vector<cell> >, p: position) -> &cell
+{
+	return v[p[0], p[1]];
+}
+
+operator [] (v: &mut std::vector<std::vector<cell> >, p: position) -> &mut cell
+{
+	return v[p[0], p[1]];
+}
+
+operator [] (v: &std::vector<std::vector<int32> >, p: position) -> &int32
+{
+	return v[p[0], p[1]];
+}
+
+operator [] (v: &mut std::vector<std::vector<int32> >, p: position) -> &mut int32
+{
+	return v[p[0], p[1]];
+}
+
+function parse_input() -> [std::vector<std::vector<cell> >, position, position]
+{
+	let input = read_file("input.txt");
+	let mut map = std::vector<std::vector<cell> >();
+	let mut start_position = position();
+	let mut end_position = position();
+
+	let mut i = 0uz;
+	for (let line in input.as_str().by_line())
+	{
+		let &mut row = map.emplace_back();
+		let mut j = 0uz;
+		for (let c in line.chars())
+		{
+			row.push_back(switch (c) {
+				'.' => .empty,
+				'#' => .wall,
+				'S' => {
+					start_position = [i, j];
+					.empty
+				},
+				'E' => {
+					end_position = [i, j];
+					.empty
+				},
+				else => unreachable,
+			});
+			j += 1;
+		}
+		i += 1;
+	}
+
+	return [move map, start_position, end_position];
+}
+
+function bfs(
+	map: &std::vector<std::vector<cell> >,
+	costs: &mut std::vector<std::vector<int32> >,
+	start_position: position,
+	start_cost: int32,
+)
+{
+	let mut queue = std::vector<[position, int32]>();
+	queue.push_back([start_position, start_cost]);
+
+	let mut new_queue = std::vector<[position, int32]>();
+	while (queue.size() != 0)
+	{
+		for (let [pos, cost] in queue)
+		{
+			if (costs[pos] <= cost || map[pos] != .empty)
+			{
+				continue;
+			}
+			costs[pos] = cost;
+			new_queue.push_back([[pos[0] - 1, pos[1]], cost + 1]);
+			new_queue.push_back([[pos[0] + 1, pos[1]], cost + 1]);
+			new_queue.push_back([[pos[0], pos[1] - 1], cost + 1]);
+			new_queue.push_back([[pos[0], pos[1] + 1], cost + 1]);
+		}
+
+		std::swap(queue, new_queue);
+		new_queue.clear();
+	}
+}
+
+function get_costs(map: &std::vector<std::vector<cell> >) -> std::vector<std::vector<int32> >
+{
+	let mut costs = std::vector<std::vector<int32> >();
+	costs.resize(map.size());
+	for (let i in 0..costs.size())
+	{
+		costs[i].resize(map[i].size());
+		for (let &mut cost in costs[i])
+		{
+			cost = int32.max;
+		}
+	}
+	return move costs;
+}
+
+function get_good_cheat_counts(
+	map: &std::vector<std::vector<cell> >,
+	costs: &std::vector<std::vector<int32> >,
+	back_costs: &std::vector<std::vector<int32> >,
+	cheat_start_position: position,
+	cheat_length: usize,
+	non_cheat_cost: int32,
+) -> int32
+{
+	let i_start = std::max(cheat_start_position[0], cheat_length) - cheat_length;
+	let i_end = std::min(cheat_start_position[0] + cheat_length + 1, map.size());
+	let j_start = std::max(cheat_start_position[1], cheat_length) - cheat_length;
+	let j_end = std::min(cheat_start_position[1] + cheat_length + 1, map[0].size());
+
+	let mut good_cheats_count = 0;
+	for (let i in i_start..i_end)
+	{
+		for (let j in j_start..j_end)
+		{
+			let d = std::max(i, cheat_start_position[0]) - std::min(i, cheat_start_position[0])
+				+ std::max(j, cheat_start_position[1]) - std::min(j, cheat_start_position[1]);
+			if (d == 0 || d > cheat_length)
+			{
+				continue;
+			}
+
+			if (map[i, j] == .empty && costs[cheat_start_position] + d as int32 + back_costs[i, j] + 100 <= non_cheat_cost)
+			{
+				good_cheats_count += 1;
+			}
+		}
+	}
+	return good_cheats_count;
+}
+
+function part1(map: &std::vector<std::vector<cell> >, start_position: position, end_position: position) -> int32
+{
+	let mut costs = get_costs(map);
+	bfs(map, costs, start_position, 0);
+	let mut back_costs = get_costs(map);
+	bfs(map, back_costs, end_position, 0);
+
+	let mut good_cheats_count = 0;
+	for (let i in 1..map.size() - 1)
+	{
+		for (let j in 1..map[i].size() - 1)
+		{
+			if (map[i, j] != .empty)
+			{
+				continue;
+			}
+			good_cheats_count += get_good_cheat_counts(map, costs, back_costs, [i, j], 2, costs[end_position]);
+		}
+	}
+
+	return good_cheats_count;
+}
+
+function part2(map: &std::vector<std::vector<cell> >, start_position: position, end_position: position) -> int32
+{
+	let mut costs = get_costs(map);
+	bfs(map, costs, start_position, 0);
+	let mut back_costs = get_costs(map);
+	bfs(map, back_costs, end_position, 0);
+
+	let mut good_cheats_count = 0;
+	for (let i in 1..map.size() - 1)
+	{
+		for (let j in 1..map[i].size() - 1)
+		{
+			if (map[i, j] != .empty)
+			{
+				continue;
+			}
+			good_cheats_count += get_good_cheat_counts(map, costs, back_costs, [i, j], 20, costs[end_position]);
+		}
+	}
+
+	return good_cheats_count;
+}
+
+function main()
+{
+	let [map, start_position, end_position] = parse_input();
+
+	let part1_result = part1(map, start_position, end_position);
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(map, start_position, end_position);
+	std::print("part 2: {}\n", part2_result);
+}
