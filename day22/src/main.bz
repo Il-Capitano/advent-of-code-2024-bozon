@@ -1,0 +1,120 @@
+import std::format;
+import std::vector;
+import std::math;
+import common;
+
+function parse_input() -> std::vector<uint64>
+{
+	let input = read_file("input.txt");
+	let mut result = std::vector<uint64>();
+	for (let line in input.as_str().by_line())
+	{
+		result.push_back(parse_int(uint64, line));
+	}
+
+	return move result;
+}
+
+function mix(a: uint64, b: uint64) -> uint64
+{
+	return a ^ b;
+}
+
+function prune(n: uint64) -> uint64
+{
+	return n % 16777216;
+}
+
+function next_secret(n: uint64) -> uint64
+{
+	let n = mix(64 * n, n).prune();
+	let n = mix(n / 32, n).prune();
+	let n = mix(2048 * n, n).prune();
+	return n;
+}
+
+function part1(initial_numbers: [: uint64]) -> uint64
+{
+	let mut sum = 0u64;
+	for (mut n in initial_numbers)
+	{
+		for (let _ in 0..2000)
+		{
+			n = next_secret(n);
+		}
+		sum += n;
+	}
+	return sum;
+}
+
+function get_banana_counts(initial_numbers: [: uint64]) -> std::vector<int32>
+{
+	let mut banana_counts = std::vector<int32>();
+	let max_id = get_sequence_id([9, 9, 9, 9]);
+	banana_counts.resize(max_id + 1);
+	for (mut n in initial_numbers)
+	{
+		let mut seen = std::vector<bool>();
+		seen.resize(max_id + 1);
+
+		let mut changes = [4: int32]();
+		for (let i in 1..4)
+		{
+			changes[i] -= (n % 10) as int32;
+			n = next_secret(n);
+			changes[i] += (n % 10) as int32;
+		}
+		for (let _ in 3..2000)
+		{
+			changes[0] = changes[1];
+			changes[1] = changes[2];
+			changes[2] = changes[3];
+			changes[3] = 0;
+			changes[3] -= (n % 10) as int32;
+			n = next_secret(n);
+			changes[3] += (n % 10) as int32;
+
+			let id = get_sequence_id(changes);
+			if (!seen[id])
+			{
+				seen[id] = true;
+				banana_counts[id] += (n % 10) as int32;
+			}
+		}
+	}
+
+	return move banana_counts;
+}
+
+function get_sequence_id(change_sequence: [4: int32]) -> usize
+{
+	let id = (change_sequence[0] + 9) as usize;
+	let id = 19 * id + (change_sequence[1] + 9) as usize;
+	let id = 19 * id + (change_sequence[2] + 9) as usize;
+	let id = 19 * id + (change_sequence[3] + 9) as usize;
+	return id;
+}
+
+function part2(initial_numbers: [: uint64]) -> int32
+{
+	let mut banana_counts = get_banana_counts(initial_numbers);
+	let max_id = get_sequence_id([9, 9, 9, 9]);
+
+	let mut best_total = 0;
+	for (let count in banana_counts)
+	{
+		best_total = std::max(best_total, count);
+	}
+
+	return best_total;
+}
+
+function main()
+{
+	let input = parse_input();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
