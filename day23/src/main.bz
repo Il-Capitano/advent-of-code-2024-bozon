@@ -1,0 +1,137 @@
+import std::format;
+import std::vector;
+import std::utils;
+import std::string;
+import common;
+
+function computer_id(name: str) -> usize
+{
+	std::assert(name.size() == 2);
+	let first = *name.begin_ptr();
+	let second = *(name.begin_ptr() + 1);
+	let letter_count = ('z' - 'a') as usize + 1;
+	return (first - 'a' as uint8) * letter_count + (second - 'a' as uint8);
+}
+
+function computer_name(id: usize) -> [2: char]
+{
+	let letter_count = ('z' - 'a') as usize + 1;
+	return ['a' + id / letter_count, 'a' + id % letter_count];
+}
+
+consteval max_computer_id = computer_id("zz");
+
+function parse_input() -> std::vector<std::vector<bool> >
+{
+	let input = read_file("input.txt");
+
+	let mut result = std::vector<std::vector<bool> >();
+	result.resize(max_computer_id + 1);
+	for (let &mut row in result)
+	{
+		row.resize(max_computer_id + 1);
+	}
+
+	for (let line in input.as_str().by_line())
+	{
+		let [left, right] = line.split('-');
+		let left = computer_id(left);
+		let right = computer_id(right);
+		result[left, right] = true;
+		result[right, left] = true;
+	}
+
+	return move result;
+}
+
+function part1(network: &std::vector<std::vector<bool> >) -> int32
+{
+	let mut set_count = 0;
+	for (let i in 0..max_computer_id + 1)
+	{
+		for (let j in i + 1..max_computer_id + 1)
+		{
+			if (!network[i, j])
+			{
+				continue;
+			}
+
+			for (let k in j + 1..max_computer_id + 1)
+			{
+				if (!network[i, k] || !network[j, k])
+				{
+					continue;
+				}
+
+				if (computer_name(i)[0] == 't' || computer_name(j)[0] == 't' || computer_name(k)[0] == 't')
+				{
+					set_count += 1;
+				}
+			}
+		}
+	}
+
+	return set_count;
+}
+
+function largest_lan_network(
+	network: &std::vector<std::vector<bool> >,
+	min_id: usize,
+	nodes: &mut std::vector<usize>,
+	largest_network: &mut std::vector<usize>,
+)
+{
+	if (nodes.size() > largest_network.size())
+	{
+		largest_network = nodes;
+	}
+	for (let k in min_id..max_computer_id + 1)
+	{
+		let mut is_in_network = true;
+		for (let node in nodes)
+		{
+			if (!network[k, node])
+			{
+				is_in_network = false;
+				break;
+			}
+		}
+
+		if (is_in_network)
+		{
+			nodes.push_back(k);
+			largest_lan_network(network, k + 1, nodes, largest_network);
+			nodes.resize(nodes.size() - 1);
+		}
+	}
+}
+
+function part2(network: &std::vector<std::vector<bool> >) -> std::string
+{
+	let mut nodes = std::vector<usize>();
+	let mut largest_network = std::vector<usize>();
+	largest_lan_network(network, 0, nodes, largest_network);
+
+	let mut result = std::string();
+	for (let id in largest_network)
+	{
+		if (result.size() != 0)
+		{
+			result += ',';
+		}
+		let name = computer_name(id);
+		result += name[0];
+		result += name[1];
+	}
+	return move result;
+}
+
+function main()
+{
+	let input = parse_input();
+
+	let part1_result = part1(input);
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input);
+	std::print("part 2: {}\n", part2_result);
+}
