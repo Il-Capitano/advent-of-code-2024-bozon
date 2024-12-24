@@ -1,0 +1,484 @@
+import std::format;
+import std::vector;
+import std::utils;
+import std::string;
+import common;
+
+function add_unique(names: &mut std::vector<std::string>, new_name: str) -> usize
+{
+	for (let i in 0..names.size())
+	{
+		if (names[i] == new_name)
+		{
+			return i;
+		}
+	}
+	let result = names.size();
+	names.push_back(std::string(new_name));
+	return result;
+}
+
+function get_node(names: [: std::string], name: str) -> ?usize
+{
+	for (let i in 0..names.size())
+	{
+		if (names[i] == name)
+		{
+			return i;
+		}
+	}
+	return null;
+}
+
+enum operation
+{
+	and,
+	or,
+	xor,
+	none,
+}
+
+function execute(op: operation, lhs: bool, rhs: bool) -> bool
+{
+	return switch (op) {
+		.and => lhs & rhs,
+		.or => lhs | rhs,
+		.xor => lhs ^ rhs,
+		.none => unreachable,
+	};
+}
+
+function parse_input() -> [std::vector<std::string>, std::vector<bool>, std::vector<[operation, usize, usize, usize]>]
+{
+	let input = read_file("input.txt");
+	let lines = input.as_str().by_line();
+	let mut it = lines.begin();
+	let end = lines.end();
+
+	let mut nodes = std::vector<std::string>();
+	let mut inputs = std::vector<bool>();
+	for (; it != end && *it != ""; ++it)
+	{
+		let line = *it;
+		let [node, value] = line.split(": ");
+		let node = nodes.add_unique(node);
+		std::assert(node == inputs.size());
+		inputs.push_back(value == "1");
+	}
+	std::assert(it != end);
+	++it;
+
+	let mut operations = std::vector<[operation, usize, usize, usize]>();
+	for (; it != end; ++it)
+	{
+		let line = *it;
+		let [lhs, line] = line.split(' ');
+		let [op, line] = line.split(' ');
+		let [rhs, out] = line.split(" -> ");
+
+		let op: operation = switch (op) {
+			"AND" => .and,
+			"OR" => .or,
+			"XOR" => .xor,
+			else => unreachable,
+		};
+		let lhs = nodes.add_unique(lhs);
+		let rhs = nodes.add_unique(rhs);
+		let out = nodes.add_unique(out);
+		operations.push_back([op, lhs, rhs, out]);
+	}
+
+	return [move nodes, move inputs, move operations];
+}
+
+function substr(s: str, n: usize) -> str
+{
+	std::assert(n <= s.size());
+	return __builtin_str_from_ptrs(s.begin_ptr() + n, s.end_ptr());
+}
+
+function part1(
+	nodes: [: std::string],
+	inputs: [: bool],
+	operations: [: [operation, usize, usize, usize]],
+) -> uint64
+{
+	let mut node_values = std::vector<?bool>();
+	node_values.resize(nodes.size());
+
+	for (let i in 0..inputs.size())
+	{
+		node_values[i] = inputs[i];
+	}
+
+	let mut done = false;
+	while (!done)
+	{
+		done = true;
+		for (let &[op, lhs, rhs, out] in operations)
+		{
+			if (
+				node_values[lhs] != null
+				&& node_values[rhs] != null
+				&& node_values[out] == null
+			)
+			{
+				node_values[out] = op.execute(node_values[lhs].get_value(), node_values[rhs].get_value());
+			}
+			else if (node_values[out] == null)
+			{
+				done = false;
+			}
+		}
+	}
+
+	let mut result = 0u64;
+	for (let i in 0..nodes.size())
+	{
+		if (!nodes[i].starts_with("z"))
+		{
+			continue;
+		}
+		let n = parse_int(uint64, nodes[i].as_str().substr(1));
+		result |= node_values[i].get_value() as uint64 << n;
+	}
+
+	return result;
+}
+
+function is_base_xor(
+	node: usize,
+	bit: usize,
+	operations: [: [operation, usize, usize]],
+	x_base: usize,
+	y_base: usize,
+) -> bool
+{
+	let [op, lhs, rhs] = operations[node];
+	return op == .xor && (
+		(lhs == x_base + bit && rhs == y_base + bit)
+		|| (lhs == y_base + bit && rhs == x_base + bit)
+	);
+}
+
+function is_base_and(
+	node: usize,
+	bit: usize,
+	operations: [: [operation, usize, usize]],
+	x_base: usize,
+	y_base: usize,
+) -> bool
+{
+	let [op, lhs, rhs] = operations[node];
+	return op == .and && (
+		(lhs == x_base + bit && rhs == y_base + bit)
+		|| (lhs == y_base + bit && rhs == x_base + bit)
+	);
+}
+
+function is_carry_bit(
+	node: usize,
+	bit: usize,
+	operations: [: [operation, usize, usize]],
+	x_base: usize,
+	y_base: usize,
+) -> bool
+{
+	if (bit == 0)
+	{
+		return is_base_and(node, bit, operations, x_base, y_base);
+	}
+	let [op, lhs, rhs] = operations[node];
+	if (op != .or)
+	{
+		return false;
+	}
+
+	let [op, lhs, rhs] = if (is_base_and(lhs, bit, operations, x_base, y_base)) {
+		operations[rhs]
+	} else if (is_base_and(rhs, bit, operations, x_base, y_base)) {
+		operations[lhs]
+	} else {
+		return false;
+	};
+	if (op != .and)
+	{
+		return false;
+	}
+
+	return if (is_base_xor(lhs, bit, operations, x_base, y_base)) {
+		is_carry_bit(rhs, bit - 1, operations, x_base, y_base)
+	} else if (is_base_xor(rhs, bit, operations, x_base, y_base)) {
+		is_carry_bit(lhs, bit - 1, operations, x_base, y_base)
+	} else {
+		return false;
+	};
+}
+
+consteval z_most_significant_bit: usize = 45;
+
+function is_addition(
+	node: usize,
+	bit: usize,
+	operations: [: [operation, usize, usize]],
+	x_base: usize,
+	y_base: usize,
+) -> bool
+{
+	if (bit == 0)
+	{
+		return is_base_xor(node, bit, operations, x_base, y_base);
+	}
+	else if (bit == z_most_significant_bit)
+	{
+		return is_carry_bit(node, bit - 1, operations, x_base, y_base);
+	}
+
+	let [op, lhs, rhs] = operations[node];
+	return op == .xor && (
+		(
+			is_carry_bit(lhs, bit - 1, operations, x_base, y_base)
+			&& is_base_xor(rhs, bit, operations, x_base, y_base)
+		)
+		|| (
+			is_base_xor(lhs, bit, operations, x_base, y_base)
+			&& is_carry_bit(rhs, bit - 1, operations, x_base, y_base)
+		)
+	);
+}
+
+function fix_base_xor(
+	node: usize,
+	bit: usize,
+	operations: [: mut [operation, usize, usize]],
+	x_base: usize,
+	y_base: usize,
+	swaps: &mut std::vector<usize>,
+)
+{
+	if (!is_base_xor(node, bit, operations, x_base, y_base))
+	{
+		for (let i in 0..operations.size())
+		{
+			if (is_base_xor(i, bit, operations, x_base, y_base))
+			{
+				swaps.push_back(node);
+				swaps.push_back(i);
+				std::swap(operations[node], operations[i]);
+				break;
+			}
+		}
+	}
+}
+
+function fix_base_and(
+	node: usize,
+	bit: usize,
+	operations: [: mut [operation, usize, usize]],
+	x_base: usize,
+	y_base: usize,
+	swaps: &mut std::vector<usize>,
+)
+{
+	if (!is_base_and(node, bit, operations, x_base, y_base))
+	{
+		for (let i in 0..operations.size())
+		{
+			if (is_base_and(i, bit, operations, x_base, y_base))
+			{
+				swaps.push_back(node);
+				swaps.push_back(i);
+				std::swap(operations[node], operations[i]);
+				break;
+			}
+		}
+	}
+}
+
+function fix_carry_bit(
+	node: usize,
+	bit: usize,
+	operations: [: mut [operation, usize, usize]],
+	x_base: usize,
+	y_base: usize,
+	swaps: &mut std::vector<usize>,
+)
+{
+	if (bit == 0)
+	{
+		fix_base_and(node, bit, operations, x_base, y_base, swaps);
+		return;
+	}
+
+	let [op, lhs, rhs] = operations[node];
+	if (op != .or)
+	{
+		unreachable;
+	}
+
+	let [op, lhs, rhs] = if (is_base_and(lhs, bit, operations, x_base, y_base)) {
+		operations[rhs]
+	} else if (is_base_and(rhs, bit, operations, x_base, y_base)) {
+		operations[lhs]
+	} else {
+		unreachable;
+	};
+	if (op != .and)
+	{
+		unreachable;
+	}
+
+	if (is_base_xor(lhs, bit, operations, x_base, y_base))
+	{
+		fix_carry_bit(rhs, bit - 1, operations, x_base, y_base, swaps);
+	}
+	else if (is_base_xor(rhs, bit, operations, x_base, y_base))
+	{
+		fix_carry_bit(lhs, bit - 1, operations, x_base, y_base, swaps);
+	}
+	else if (is_carry_bit(lhs, bit - 1, operations, x_base, y_base))
+	{
+		fix_base_xor(rhs, bit, operations, x_base, y_base, swaps);
+	}
+	else if (is_carry_bit(rhs, bit - 1, operations, x_base, y_base))
+	{
+		fix_base_xor(lhs, bit, operations, x_base, y_base, swaps);
+	}
+	else
+	{
+		unreachable;
+	}
+}
+
+function fix_addition(
+	node: usize,
+	bit: usize,
+	operations: [: mut [operation, usize, usize]],
+	x_base: usize,
+	y_base: usize,
+	swaps: &mut std::vector<usize>,
+)
+{
+	if (bit == 0)
+	{
+		fix_base_xor(node, bit, operations, x_base, y_base, swaps);
+		return;
+	}
+	else if (bit == z_most_significant_bit)
+	{
+		fix_carry_bit(node, bit - 1, operations, x_base, y_base, swaps);
+		return;
+	}
+
+	let [op, lhs, rhs] = operations[node];
+	if (op != .xor)
+	{
+		for (let i in 0..operations.size())
+		{
+			if (is_addition(i, bit, operations, x_base, y_base))
+			{
+				swaps.push_back(node);
+				swaps.push_back(i);
+				std::swap(operations[node], operations[i]);
+				break;
+			}
+		}
+	}
+	else if (is_carry_bit(lhs, bit - 1, operations, x_base, y_base))
+	{
+		fix_base_xor(rhs, bit, operations, x_base, y_base, swaps);
+	}
+	else if (is_carry_bit(rhs, bit - 1, operations, x_base, y_base))
+	{
+		fix_base_xor(lhs, bit, operations, x_base, y_base, swaps);
+	}
+	else if (is_base_xor(lhs, bit, operations, x_base, y_base))
+	{
+		fix_carry_bit(rhs, bit - 1, operations, x_base, y_base, swaps);
+	}
+	else if (is_base_xor(rhs, bit, operations, x_base, y_base))
+	{
+		fix_carry_bit(lhs, bit - 1, operations, x_base, y_base, swaps);
+	}
+	else
+	{
+		unreachable;
+	}
+}
+
+function cmp_lt(lhs: str, rhs: str) -> bool
+{
+	if (lhs.size() != rhs.size())
+	{
+		return lhs.size() < rhs.size();
+	}
+
+	let lhs_begin = lhs.begin_ptr();
+	let rhs_begin = rhs.begin_ptr();
+	for (let i in 0..lhs.size())
+	{
+		let a = *(lhs_begin + i);
+		let b = *(rhs_begin + i);
+		if (a != b)
+		{
+			return a < b;
+		}
+	}
+	return false;
+}
+
+function part2(
+	nodes: [: std::string],
+	operations: [: [operation, usize, usize, usize]],
+) -> std::string
+{
+	let mut transformed_operations = std::vector<[operation, usize, usize]>();
+	transformed_operations.reserve(nodes.size());
+	for (let _ in 0..nodes.size())
+	{
+		transformed_operations.push_back([.none, 0, 0]);
+	}
+
+	for (let &[op, lhs, rhs, out] in operations)
+	{
+		transformed_operations[out] = [op, lhs, rhs];
+	}
+	let operations = transformed_operations.as_slice();
+
+	let x_base = nodes.get_node("x00").get_value();
+	let y_base = nodes.get_node("y00").get_value();
+	let mut swaps = std::vector<usize>();
+	for (let bit in 0..=z_most_significant_bit)
+	{
+		let node = nodes.get_node(std::format("z{:02}", bit).as_str()).get_value();
+		fix_addition(node, bit, operations, x_base, y_base, swaps);
+	}
+
+	for (let i in 1..swaps.size())
+	{
+		for (let j in swaps.size() - i..swaps.size())
+		{
+			if (!cmp_lt(nodes[swaps[j - 1]].as_str(), nodes[swaps[j]].as_str()))
+			{
+				std::swap(swaps[j - 1], swaps[j]);
+			}
+		}
+	}
+
+	let mut result = nodes[swaps[0]];
+	for (let i in 1..swaps.size())
+	{
+		result += std::format(",{}", nodes[swaps[i]]);
+	}
+	return move result;
+}
+
+function main()
+{
+	let [nodes, inputs, operations] = parse_input();
+
+	let part1_result = part1(nodes.as_slice(), inputs.as_slice(), operations.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(nodes.as_slice(), operations.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
