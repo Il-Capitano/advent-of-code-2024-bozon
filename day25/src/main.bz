@@ -1,0 +1,84 @@
+import std::format;
+import std::vector;
+import common;
+
+function parse_input() -> [std::vector<[5: int32]>, std::vector<[5: int32]>]
+{
+	let input = read_file("input.txt");
+	let lines = input.as_str().by_line();
+	let mut it = lines.begin();
+	let end = lines.end();
+
+	let mut locks = std::vector<[5: int32]>();
+	let mut keys = std::vector<[5: int32]>();
+	while (it != end)
+	{
+		let first_line = *it;
+		let is_lock = first_line == "#####";
+		let mut heights = [5: int32]();
+		for (; it != end; ++it)
+		{
+			let line = *it;
+			if (line == "")
+			{
+				++it;
+				break;
+			}
+
+			let mut i = 0;
+			for (let c in line.chars())
+			{
+				if (c == '#')
+				{
+					heights[i] += 1;
+				}
+				i += 1;
+			}
+		}
+
+		if (is_lock)
+		{
+			locks.push_back(heights);
+		}
+		else
+		{
+			keys.push_back(heights);
+		}
+	}
+
+	return [move locks, move keys];
+}
+
+function part1(locks: [: [5: int32]], keys: [: [5: int32]]) -> int32
+{
+	let mut fit_count = 0;
+	for (let &lock in locks)
+	{
+		for (let &key in keys)
+		{
+			let mut overlapping = false;
+			for (let i in 0..lock.size())
+			{
+				if (lock[i] + key[i] > 7)
+				{
+					overlapping = true;
+					break;
+				}
+			}
+			if (!overlapping)
+			{
+				fit_count += 1;
+			}
+		}
+	}
+
+	return fit_count;
+}
+
+function main()
+{
+	let [locks, keys] = parse_input();
+
+	let part1_result = part1(locks.as_slice(), keys.as_slice());
+	std::print("part 1: {}\n", part1_result);
+}
